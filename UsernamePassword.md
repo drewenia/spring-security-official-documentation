@@ -371,3 +371,17 @@ yöntemini çağırır.
 
 Spring Security'nin HTTP Temel Kimlik Doğrulaması desteği varsayılan olarak etkindir. Ancak, herhangi bir servlet 
 tabanlı yapılandırma sağlanır sağlanmaz, HTTP Basic'in açıkça sağlanması gerekir.
+
+# Digest Authentication
+
+DigestAuthenticationFilter, Spring Security tarafından sunulan bir filtre olup Digest Kimlik Doğrulama protokolünü 
+uygular. Digest Kimlik Doğrulama, istemci ve sunucu arasında kimlik doğrulama sürecini gerçekleştiren bir mekanizmadır. 
+Bu mekanizma, kullanıcı adı ve şifrenin sunucu tarafından depolanan bir özete (digest) dayalı olarak doğrulanmasını 
+sağlar.
+
+DigestAuthentication modern uygulamalarda kullanmamalısınız, çünkü güvenli sayılmaz. En bariz sorun, şifrelerinizi 
+düz metin veya şifreli veya MD5 formatında saklamanız gerektiğidir. Bu depolama biçimlerinin tümü güvensiz kabul edilir.
+Bunun yerine, DigestAuthentication tarafından desteklenmeyen tek yönlü uyarlanabilir parola karması 
+(bCrypt, PBKDF2, SCrypt ve diğerleri) kullanarak kimlik bilgilerini saklamanız gerekir.DigestAuthentication, 
+özellikle kimlik bilgilerinin kablo üzerinden hiçbir zaman açık metin olarak gönderilmemesini sağlayarak, 
+Temel kimlik doğrulamanın birçok zayıflığını çözmeye çalışır.
