@@ -4,7 +4,7 @@ SpringSecurity HttpServletRequest üzerinden kullanıcı adı ve şifre okumak i
 - Basic
 - Digest
 
-## Form
+# Form Login
 
 SpringSecurity bir HTML formu aracılığıyla sağlanan username/password desteğini sağlar.
 
@@ -311,3 +311,63 @@ gönderdiğinde, bu şifre "password" parametresiyle sunucuya gönderilir.
 * Eğer error adında bir HTTP parametresi bulunursa, bu kullanıcının geçerli bir kullanıcı adı veya şifre sağlamadığını 
 gösterir.
 * Eğer logout adında bir HTTP parametresi bulunursa, bu kullanıcının başarıyla oturumu kapattığını gösterir.
+
+# Basic Authentication
+
+Bu bölüm, Spring Security içinde HTTP Basic Authentication'ın nasıl çalıştığını açıklar. İlk olarak, kimlik doğrulaması 
+yapılmamış bir client'a sunucu tarafından "WWW-Authenticate" header'i gönderilir.
+
+![img.png](UsernamePasswordImages/img_2.png)
+
+1 - lk olarak, bir kullanıcı unauthenticated bir şekilde /private kaynağına kimlik doğrulaması yapılmamış bir 
+request gönderir. Bu durumda, sunucu genellikle bir "401 Unauthorized" response'u ile isteği reddeder ve kullanıcıya 
+yetkisiz olduğunu bildirir.
+
+2 - Spring Security'nin AuthorizationFilter'ı, kimliği doğrulanmamış isteğin bir AccessDeniedException fırlatarak 
+Reddedildiğini belirtir.
+
+3 - Kullanıcı kimlik doğrulaması yapılmadığından dolayı, ExceptionTranslationFilter, StartAuthentication işlemini 
+başlatır. Yapılandırılmış AuthenticationEntryPoint, genellikle BasicAuthenticationEntryPoint sınıfından bir örnektir 
+ve bir WWW-Authenticate başlığı gönderir. HTTP Basic Authentication kullanılıyorsa, bu başlık genellikle "Basic realm" 
+şeklinde gönderilir.RequestCache genellikle NullRequestCache olarak yapılandırılmıştır ve istemci, başlangıçta talep 
+ettiği istekleri yeniden yayınlayabildiği için isteği kaydetmez.
+
+Client WWW-Authenticate header'ini aldığında, bir username ve password ile yeniden denemesi gerektiğini bilir. 
+Aşağıda ki resim username ve password flow şemasını göstermektedir.
+
+![img_1.png](UsernamePasswordImages/img_3.png)
+
+1 - Kullanıcı kullanıcı adını ve şifresini gönderdiğinde, BasicAuthenticationFilter HttpServletRequest üzerinden 
+kullanıcı adı ve şifreyi çıkararak bir UsernamePasswordAuthenticationToken oluşturur. Bu, Authentication türündeki 
+bir nesnedir. UsernamePasswordAuthenticationToken, Spring Security tarafından kullanılan ve kullanıcının kimlik 
+doğrulamasını temsil eden bir türdür. Bu nesne, kimlik doğrulama işlemi sırasında kullanıcı adı ve şifre bilgilerini 
+tutar. Oluşturulan bu token, kimlik doğrulama sürecinin bir parçası olarak kullanılır ve ilgili kullanıcıyı temsil eder
+
+2 - Daha sonra, kullanıcının kimlik bilgilerini içeren UsernamePasswordAuthenticationToken, kimlik doğrulaması için 
+AuthenticationManager'a iletilir. AuthenticationManager, sağlanan kimlik bilgilerine göre kullanıcının kimliğini 
+doğrulamaktan sorumludur. AuthenticationManager'ın nasıl göründüğü, kullanıcı bilgilerinin nasıl saklandığına bağlı 
+olarak değişebilir. Tipik bir senaryoda, AuthenticationManager, bir kullanıcı deposuyla veya kimlik doğrulama hizmeti 
+sunan başka bir bileşenle etkileşimde bulunabilir. Örneğin, kullanıcı bilgileri bir veritabanında depolanıyorsa, 
+AuthenticationManager, veritabanından kullanıcıyı bulup kimlik doğrulamasını gerçekleştirebilir.
+
+3 - Kimlik doğrulama başarısız olursa, bu, sağlanan kimlik bilgilerinin geçersiz veya beklenen değerlerle eşleşmediği 
+anlamına gelir. Bu durum, kullanıcı adı veya şifrenin yanlış olması veya kullanıcı hesabının kilitli, süresi dolmuş
+veya devre dışı olması gibi durumlarda meydana gelebilir. Bu durumda neler olur;
+
+* SecurityContextHolder temizlenir
+* RememberMeServices.loginFail çağırılır. RememberMe yapılandırılmadıysa bu işlem yapılmaz
+* Kimlik doğrulama başarısız olduğunda, AuthenticationEntryPoint, WWW-Authenticate header'inin tekrar gönderilmesini 
+tetiklemek için çağrılır. AuthenticationEntryPoint arayüzü, bu davranışı özelleştirmek için Spring Security'de 
+kullanılır.
+
+4 - Kimlik doğrulama işlemi başarılı olduğunda, sağlanan kimlik bilgilerinin geçerli ve beklenen değerlerle eşleştiği 
+anlamına gelir. Bu durum, kullanıcının başarılı bir şekilde kimlik doğrulandığı ve kimliğinin doğrulandığı anlamına 
+gelir.
+
+* Kimlik doğrulama, SecurityContextHolder'da ayarlanır
+* RememberMeServices.loginSuccess çağırılır
+* BasicAuthenticationFilter, geri kalan uygulama mantığıyla devam etmek için FilterChain.doFilter(request, response) 
+yöntemini çağırır.
+
+Spring Security'nin HTTP Temel Kimlik Doğrulaması desteği varsayılan olarak etkindir. Ancak, herhangi bir servlet 
+tabanlı yapılandırma sağlanır sağlanmaz, HTTP Basic'in açıkça sağlanması gerekir.
