@@ -193,3 +193,60 @@ sağladığı kimlik bilgilerini (kullanıcı adı ve şifre gibi) kullanarak Us
 Sonuç olarak, DaoAuthenticationProvider, UserDetails'ı doğrular ve ardından bu doğrulanmış kullanıcı ayrıntılarını 
 içeren bir Authentication nesnesi oluşturur. Bu Authentication nesnesi, kullanıcının kimlik doğrulama sürecini 
 geçtiğini ve yetkilendirme ve diğer güvenlik kontrolleri için kullanılabileceğini temsil eder.
+
+## UserDetailsService
+UserDetailsService, DaoAuthenticationProvider tarafından kullanılır ve bir kullanıcı adı, şifre ve diğer öznitelikleri 
+almak için kullanılır. Bir kullanıcı adı ve şifre ile kimlik doğrulama yapmak için kullanılır.
+
+UserDetailsService, genellikle kimlik doğrulama işlemi sırasında kullanıcının kimlik bilgilerini almak için kullanılır. 
+İstemciden gelen kimlik bilgileri, kullanıcı adı ve şifre gibi, UserDetailsService aracılığıyla alınır.
+
+Spring Security, UserDetailsService için in-memory ve JDBC tabanlı implementasyonlar sağlar.
+* In-Memory UserDetailsService: Bu implementasyon, kullanıcı ayrıntılarını bellekte bir veri yapısında 
+(genellikle bir Map) saklar. Örneğin, kullanıcı adları, şifreler ve roller gibi bilgileri içeren bir Map 
+kullanılabilir. Bu yöntem basit uygulamalar için uygundur, ancak büyük kullanıcı tabanları veya güncellemeler 
+gerektiren senaryolarda kullanışsız olabilir.
+* JDBC UserDetailsService: Bu implementasyon, kullanıcı ayrıntılarını bir JDBC veritabanından alır. 
+JDBC UserDetailsService, genellikle kullanıcı bilgilerinin bir veritabanında saklandığı ve kimlik doğrulama işlemi 
+sırasında bu veritabanının kullanıldığı durumlarda tercih edilir. Veritabanında kullanıcı tablosu ve gerekli sütunlar 
+(kullanıcı adı, şifre, roller vb.) bulunmalıdır. Bu şekilde, kullanıcı kimlik bilgileri güvenli bir şekilde 
+saklanabilir ve veritabanı kullanıcı yönetimi sağlanabilir.
+
+Özelleştirilmiş kimlik doğrulama yapmak için, özel bir UserDetailsService uygulamasını bir bean olarak açığa 
+çıkarabilirsiniz. Aşağıdaki örnek, CustomUserDetailsService sınıfının UserDetailsService arayüzünü uyguladığını 
+varsayarak kimlik doğrulamayı özelleştiriyor.
+
+Örneğin;
+UserDetailsService arayüzünü uygulayan CustomUserDetailsService adında bir sınıf oluşturun. Bu sınıf, kimlik doğrulama 
+süreci sırasında kullanıcıya özgü verileri yüklemekten sorumlu olacak.
+
+```
+public class CustomUserDetailsService implements UserDetailsService {
+    // Implement the loadUserByUsername method to load user-specific data based on the provided username
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // Custom logic to load user details from a data source
+        // Return an instance of UserDetails that represents the user
+    }
+}
+```
+Bu sınıfı Spring container'ina bir bean olarak ekleyin. Bunun için, @Service, @Component veya @Bean gibi bir Spring 
+bileşeni anotasyonunu kullanabilirsiniz. Spring Security konfigürasyonunda, bu özelleştirilmiş UserDetailsService'ı 
+kullanarak kimlik doğrulama işlemini yapılandırabilirsiniz.
+
+```
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userDetailsService);
+    }
+    
+    // ...
+}
+```
