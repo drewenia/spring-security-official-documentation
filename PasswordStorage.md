@@ -250,3 +250,31 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     // ...
 }
 ```
+
+## PasswordEncoder
+
+Elbette! Spring Security'nin servlet desteği, PasswordEncoder ile entegre olarak şifreleri güvenli bir şekilde 
+depolamayı içerir. PasswordEncoder, şifreleri kodlamak ve doğrulamakla sorumludur. Spring Security tarafından 
+kullanılan PasswordEncoder uygulamasını özelleştirmek için, bir PasswordEncoder bean'ini açığa çıkarmanız 
+gerekmektedir. Bu şekilde, Spring Security, belirtilen PasswordEncoder bean'ini kullanarak şifreleri kodlama ve 
+doğrulama işlemlerini gerçekleştirecektir. Bu, şifrelerin güvenli bir şekilde depolanmasını sağlamak için kullanılan 
+algoritmayı ve yapılandırmaları belirlemenize olanak tanır. Özelleştirilmiş bir PasswordEncoder bean'ini açığa çıkarmak
+için aşağıdaki gibi bir yapılandırma yapabilirsiniz:
+
+```
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // Return your custom PasswordEncoder implementation
+        // Example: return new BCryptPasswordEncoder();
+    }
+
+    // Other security configuration...
+}
+```
+Bu örnekte, passwordEncoder() adında bir PasswordEncoder bean'i tanımlanmıştır. Kendi özel PasswordEncoder 
+uygulamanızı döndürmelisiniz. Örneğin, BCryptPasswordEncoder kullanarak şifreleri kodlamak için 
+new BCryptPasswordEncoder() ifadesini döndürebilirsiniz. Böylece, özelleştirilmiş PasswordEncoder uygulamanızı 
+Spring Security ile entegre edebilir ve şifreleri güvenli bir şekilde depolayabilirsiniz.
