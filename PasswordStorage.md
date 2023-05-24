@@ -177,3 +177,19 @@ JdbcUserDetailsManager'i yapılandırmadan önce bir DataSource oluşturmalıyı
     }
 ```
 Yukarıda ki Bean yardımıyla DB'ye user ve admin object'leri otomatik olarak insert ediliyor
+
+## UserDetails
+UserDetails, UserDetailsService tarafından döndürülür. DaoAuthenticationProvider, UserDetails'ı doğrular ve ardından 
+yapılandırılmış UserDetailsService tarafından döndürülen UserDetails'ı içeren bir principal'e sahip olan bir 
+Authentication nesnesini döndürür. Bu ifade, kullanıcı ayrıntılarının UserDetails nesnesi olarak temsil edildiği ve bu 
+ayrıntıların UserDetailsService tarafından sağlandığından bahsetmektedir. UserDetails, bir kullanıcının kimlik 
+bilgilerini (kullanıcı adı, şifre, roller vb.) içeren bir interface'i temsil eder. UserDetailsService, kullanıcı 
+ayrıntılarını sağlamak için kullanılan bir arayüzdür. Bu arayüzü uygulayan sınıflar, kullanıcı verilerini bir 
+veritabanından, bir API'den veya başka bir kaynaktan alabilir. UserDetailsService, genellikle kimlik doğrulama 
+işlemi sırasında kullanıcının ayrıntılarını almak için kullanılır. DaoAuthenticationProvider, UserDetails'ı doğrulamak 
+ve kimlik doğrulama işlemi için bir Authentication nesnesi oluşturmakla sorumludur. Bu işlem genellikle kullanıcının 
+sağladığı kimlik bilgilerini (kullanıcı adı ve şifre gibi) kullanarak UserDetails nesnesinin doğrulanmasını içerir.
+
+Sonuç olarak, DaoAuthenticationProvider, UserDetails'ı doğrular ve ardından bu doğrulanmış kullanıcı ayrıntılarını 
+içeren bir Authentication nesnesi oluşturur. Bu Authentication nesnesi, kullanıcının kimlik doğrulama sürecini 
+geçtiğini ve yetkilendirme ve diğer güvenlik kontrolleri için kullanılabileceğini temsil eder.
