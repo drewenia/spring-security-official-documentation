@@ -278,3 +278,36 @@ Bu örnekte, passwordEncoder() adında bir PasswordEncoder bean'i tanımlanmış
 uygulamanızı döndürmelisiniz. Örneğin, BCryptPasswordEncoder kullanarak şifreleri kodlamak için 
 new BCryptPasswordEncoder() ifadesini döndürebilirsiniz. Böylece, özelleştirilmiş PasswordEncoder uygulamanızı 
 Spring Security ile entegre edebilir ve şifreleri güvenli bir şekilde depolayabilirsiniz.
+
+## DaoAuthenticationProvider
+
+DaoAuthenticationProvider bir AuthenticationProvider implementasyonudur ve bir UserDetailsService ve PasswordEncoder 
+kullanarak bir kullanıcı adı ve şifresini doğrulamak için kullanılır. DaoAuthenticationProvider'ın temel işlevi, 
+kullanıcının sağladığı kimlik bilgilerini (kullanıcı adı ve şifre) kullanarak bir doğrulama işlemi gerçekleştirmektir. 
+Bu işlem sırasında, UserDetailsService kullanıcı ayrıntılarını alır ve doğru kullanıcı bulunduğunda PasswordEncoder 
+kullanıcı tarafından sağlanan şifreyi doğrular. Bu şekilde, DaoAuthenticationProvider kullanarak bir kullanıcının 
+kimlik doğrulamasını gerçekleştirebilirsiniz. Bu, veritabanından kullanıcı bilgilerini almak ve doğru şifreleme 
+algoritmasını kullanarak şifreleri doğrulamak için yaygın olarak kullanılan bir yöntemdir.
+
+![img.png](img.png)
+
+1 - "Reading the Username & Password" bölümündeki authentication Filter'i, isteğin içerisinden kullanıcı adını ve şifreyi 
+çıkarmak ve bir UsernamePasswordAuthenticationToken nesnesi oluşturmakla görevlidir. Bu token, kullanıcının kimlik 
+bilgilerini temsil eder ve sonra AuthenticationManager'a iletilir.
+
+2 - AuthenticationManager, Spring Security tarafından sağlanan bir arayüzdür ve kimlik doğrulama işlemlerini yönetir. 
+ProviderManager, AuthenticationManager arayüzünü uygulayan bir örnektir. AuthenticationManager, gelen kimlik doğrulama 
+isteğini alır ve doğrulama işlemini gerçekleştirmek için ilgili kimlik doğrulayıcıları (AuthenticationProvider) 
+kullanır. ProviderManager, kimlik doğrulama işlemini yöneten ve AuthenticationManager arayüzünü uygulayan bir sınıftır. 
+DaoAuthenticationProvider türünde bir AuthenticationProvider kullanarak yapılandırılan ProviderManager, kimlik 
+doğrulama işlemini gerçekleştirmek için bu özel AuthenticationProvider'ı kullanır.
+
+3 - DaoAuthenticationProvider UserDetailsService'den UserDetails'i arar
+
+4 - DaoAuthenticationProvider, önceki adımda döndürülen UserDetails üzerindeki parolayı doğrulamak için 
+PasswordEncoder'ı kullanır.
+
+5 - Kimlik doğrulama başarılı olduğunda, döndürülen Authentication nesnesi UsernamePasswordAuthenticationToken 
+türündedir ve principal (anahtar) olarak, yapılandırılmış UserDetailsService tarafından döndürülen UserDetails 
+nesnesini içerir. Sonuç olarak, döndürülen UsernamePasswordAuthenticationToken, kimlik doğrulama Filtresi tarafından 
+SecurityContextHolder üzerine ayarlanır.
