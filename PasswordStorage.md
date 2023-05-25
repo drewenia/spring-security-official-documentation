@@ -311,3 +311,312 @@ PasswordEncoder'ı kullanır.
 türündedir ve principal (anahtar) olarak, yapılandırılmış UserDetailsService tarafından döndürülen UserDetails 
 nesnesini içerir. Sonuç olarak, döndürülen UsernamePasswordAuthenticationToken, kimlik doğrulama Filtresi tarafından 
 SecurityContextHolder üzerine ayarlanır.
+
+## LDAP Authentication
+LDAP (Lightweight Directory Access Protocol), Türkçe açılımıyla Hafif Dizin Erişim Protokolü, kullanıcı bilgilerini 
+merkezi bir veritabanında saklamak ve kimlik doğrulama hizmeti olarak kullanmak için organizasyonlar tarafından 
+sıklıkla kullanılan bir protokoldür. Ayrıca uygulama kullanıcılarının rol bilgilerini depolamak için de kullanılabilir.
+
+Spring Security, kullanıcıların kimlik doğrulama işlemlerini gerçekleştirmek için farklı yöntemler sunar. 
+Bunlardan biri, kullanıcı adı ve parola ile LDAP tabanlı kimlik doğrulamadır. LDAP tabanlı kimlik doğrulama, 
+kullanıcının veritabanında saklanan kullanıcı adı ve parolasını bir LDAP sunucusuna göndererek doğrulama işlemini 
+gerçekleştirir. Öte yandan, kullanıcı adı ve parola ile kimlik doğrulaması yapılmasına rağmen, bind kimlik 
+doğrulamasında LDAP sunucusu parolayı döndürmediği için, uygulama parolanın doğrulamasını gerçekleştiremediğinden 
+UserDetailsService kullanılmaz
+
+LDAP sunucusunun nasıl yapılandırılabileceği konusunda farklı senaryolar bulunmaktadır. Bu nedenle, Spring Security'nin 
+LDAP sağlayıcısı tamamen yapılandırılabilir. Spring Security, kimlik doğrulama ve rol alımı için ayrı strateji 
+arayüzleri kullanır ve geniş bir yelpazedeki durumları yönetmek için yapılandırılabilen varsayılan uygulamalar sunar.
+
+- Setting up an Embedded LDAP Server
+Yapmanız gereken ilk şey, yapılandırmanızı yönlendireceğiniz bir LDAP Sunucunuz olduğundan emin olmaktır. Basitlik 
+açısından, genellikle yerleşik bir LDAP Sunucusu ile başlamak en iyisidir. Spring Security aşağıdakilerden birini 
+kullanmayı destekler:
+
+1 - Embedded UnboundID Server
+
+2 - Embedded ApacheDS Server
+
+users.ldif adlı bir dosya, classpath bir kaynak olarak kullanılır ve bu dosya üzerinde tanımlanan "user" ve "admin" 
+kullanıcıları, her ikisinin de "password" olarak ayarlanmış şifreleriyle birlikte LDAP sunucusunda oluşturulur.
+
+```
+dn: ou=groups,dc=springframework,dc=org
+objectclass: top
+objectclass: organizationalUnit
+ou: groups
+
+dn: ou=people,dc=springframework,dc=org
+objectclass: top
+objectclass: organizationalUnit
+ou: people
+
+dn: uid=admin,ou=people,dc=springframework,dc=org
+objectclass: top
+objectclass: person
+objectclass: organizationalPerson
+objectclass: inetOrgPerson
+cn: Rod Johnson
+sn: Johnson
+uid: admin
+userPassword: password
+
+dn: uid=user,ou=people,dc=springframework,dc=org
+objectclass: top
+objectclass: person
+objectclass: organizationalPerson
+objectclass: inetOrgPerson
+cn: Dianne Emu
+sn: Emu
+uid: user
+userPassword: password
+
+dn: cn=user,ou=groups,dc=springframework,dc=org
+objectclass: top
+objectclass: groupOfNames
+cn: user
+uniqueMember: uid=admin,ou=people,dc=springframework,dc=org
+uniqueMember: uid=user,ou=people,dc=springframework,dc=org
+
+dn: cn=admin,ou=groups,dc=springframework,dc=org
+objectclass: top
+objectclass: groupOfNames
+cn: admin
+uniqueMember: uid=admin,ou=people,dc=springframework,dc=org
+```
+
+- Embedded UnboundID Server
+UnboundID kullanılacaksa aşağıda ki dependency'ler eklenmelidir.
+```
+<dependency>
+	<groupId>com.unboundid</groupId>
+	<artifactId>unboundid-ldapsdk</artifactId>
+	<version>6.0.8</version>
+	<scope>runtime</scope>
+</dependency>
+```
+Ardından Gömülü LDAP Sunucusunu bir EmbeddedLdapServerContextSourceFactoryBean kullanarak yapılandırabilirsiniz. 
+Bu, Spring Security'ye bir in-memory LDAP sunucusu başlatma talimatı verecektir:
+```
+@Bean
+public EmbeddedLdapServerContextSourceFactoryBean contextSourceFactoryBean() {
+	return EmbeddedLdapServerContextSourceFactoryBean.fromEmbeddedLdapServer();
+}
+```
+Alternatif olarak, Yerleşik LDAP Sunucusunu manuel olarak da yapılandırabilirsiniz. Bu yaklaşımı seçerseniz Gömülü LDAP 
+Sunucusunun yaşam döngüsünü yönetmekten siz sorumlu olursunuz.
+```
+@Bean
+UnboundIdContainer ldapContainer() {
+	return new UnboundIdContainer("dc=springframework,dc=org",
+				"classpath:users.ldif");
+}
+```
+
+- Embedded ApacheDS Server
+Eğer ApacheDS kullanılmak isteniyorsa aşağıdaki dependency'ler eklenmelidir
+```
+<dependency>
+	<groupId>org.apache.directory.server</groupId>
+	<artifactId>apacheds-core</artifactId>
+	<version>1.5.5</version>
+	<scope>runtime</scope>
+</dependency>
+<dependency>
+	<groupId>org.apache.directory.server</groupId>
+	<artifactId>apacheds-server-jndi</artifactId>
+	<version>1.5.5</version>
+	<scope>runtime</scope>
+</dependency>
+```
+Daha sonra embedded LDAP sunucusunu yapılandırabilirsiniz
+```
+@Bean
+ApacheDSContainer ldapContainer() {
+	return new ApacheDSContainer("dc=springframework,dc=org",
+				"classpath:users.ldif");
+}
+```
+
+- LDAP ContextSource
+Yapılandırmanızı yönlendirmek için bir LDAP Sunucunuz olduğunda, Spring Security'yi kullanıcıların kimliğini 
+doğrulamak için kullanılması gereken bir LDAP sunucusuna işaret edecek şekilde yapılandırmanız gerekir.
+
+Bunu yapmak için bir LDAP ContextSource oluşturun (JDBC DataSource'a eşdeğerdir).
+
+LDAP ContextSource, LDAP sunucusuna bağlantı kurmak ve kimlik doğrulama işlemlerini gerçekleştirmek için gereken 
+bağlantı bilgilerini sağlar. Dolayısıyla, EmbeddedLdapServerContextSourceFactoryBean yapılandırıldıysa, Spring Security 
+otomatik olarak LDAP sunucusuna bağlanmak için gerekli olan ContextSource nesnesini oluşturur ve konfigürasyonunuzu bu 
+bağlamda kullanır. Bu şekilde, Spring Security, LDAP sunucusuna işaret eden bir ContextSource kullanarak 
+kimlik doğrulama ve yetkilendirme işlemlerini gerçekleştirir.
+```
+@Bean
+public EmbeddedLdapServerContextSourceFactoryBean contextSourceFactoryBean() {
+	EmbeddedLdapServerContextSourceFactoryBean contextSourceFactoryBean =
+			EmbeddedLdapServerContextSourceFactoryBean.fromEmbeddedLdapServer();
+	contextSourceFactoryBean.setPort(0);
+	return contextSourceFactoryBean;
+}
+```
+Alternatif olarak, sağlanan LDAP sunucusuna bağlanmak için LDAP ContextSource'u açıkça yapılandırabilirsiniz:
+```
+ContextSource contextSource(UnboundIdContainer container) {
+	return new DefaultSpringSecurityContextSource("ldap://localhost:53389/dc=springframework,dc=org");
+}
+```
+
+- Authentication
+LDAP bind kimlik doğrulamasında, istemci kullanıcı adı ve parolayı LDAP sunucusuna sağlar ve sunucu bu bilgileri 
+doğrular. Ancak, sunucu parolanın kendisini veya karmasını döndürmez. Bu nedenle, Spring Security kullanıcının 
+parolasını doğrulayamaz çünkü parola bilgisi uygulama tarafına iletilmez. Bu durumda, Spring Security LDAP desteği, 
+bind kimlik doğrulaması üzerinde odaklanarak kullanıcı kimlik doğrulama sürecini gerçekleştirir. Kullanıcının 
+sağladığı kullanıcı adı ve parolayı LDAP sunucusuna göndererek doğrulama işlemini gerçekleştirir, ancak parola 
+bilgisini doğrudan okuyamaz veya doğrulayamaz. Bu nedenle, Spring Security LDAP desteğiyle kullanıcı kimlik doğrulaması 
+gerçekleştirirken UserDetailsService'i kullanmaz.
+
+Bu nedenle LDAP desteği LdapAuthenticator interface'i üzerinden uygulanmaktadır. LdapAuthenticator interface'i, 
+gerektiğinde kullanıcı attribute'lerini almakla da sorumludur. LDAP sunucusunda saklanan kullanıcı atrribute'lerin 
+her biri için izinler ayrı ayrı ayarlanabilir. Kimlik doğrulama türüne bağlı olarak, belirli bir kimlik doğrulama 
+yöntemi kullanıldığında erişilebilecek attribute'ler değişebilir. Örneğin, kullanıcı olarak bağlanıyorsa, attributeleri 
+kullanıcının kendi izinleriyle okumak gerekebilir.
+
+Spring Security, iki LdapAuthenticator uygulaması sağlar:
+
+1 - User Bind Authentication
+
+2 - Using Password Authentication
+
+- 1 -  Using Bind Authentication
+
+Bind kimlik doğrulaması, LDAP sunucusuna bağlanarak kullanıcı adı ve parolanın doğrulanmasını içeren bir mekanizmadır. 
+Kullanıcı, LDAP sunucusuna bağlanırken kullanıcı adını ve parolayı sağlar. Sunucu, bu sağlanan kimlik bilgilerini 
+kullanarak kullanıcının kimlik doğrulamasını gerçekleştirir.
+
+Bind kimlik doğrulamasında, kullanıcının kimlik bilgileri (kullanıcı adı ve parola) LDAP sunucusuna gönderilir ve 
+sunucu tarafından doğrulanır. Bind Authentication kullanmanın avantajı, kullanıcının secrets (the password) istemcilere 
+ifşa edilmesinin gerekmemesidir, bu da onları sızıntıdan korumaya yardımcı olur.
+
+```
+@Bean
+AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource) {
+	LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource);
+	factory.setUserDnPatterns("uid={0},ou=people");
+	return factory.createAuthenticationManager();
+}
+```
+Yukarıda ki örnek kullanıcı giriş adını sağlanan desende yerine koyarak kullanıcı için DN'yi elde eder ve ardından 
+kullanıcıyı o DN ile ve giriş parolasıyla bağlamaya çalışır.
+
+Örneğin, bir kullanıcının giriş adı "john" ise ve sağlanan desen "cn={0},ou=users,dc=mydomain,dc=com" ise, örnekteki 
+işlem, "{0}" yerine "john" yazarak "cn=john,ou=users,dc=mydomain,dc=com" gibi bir DN oluşturur ve ardından bu DN ve 
+kullanıcının giriş parolasını kullanarak LDAP sunucusuna bağlanmaya çalışır.
+
+Tüm kullanıcıların dizinde tek bir node altında depolandığı durumlarda yukarıdaki işlemin uygun olduğu ifade edilir. 
+Bazı durumlarda, LDAP dizininde tüm kullanıcıların tek bir düğüm (örneğin, "ou=users") altında depolandığı bir yapı 
+kullanılabilir. Bu durumda, yukarıdaki örnekte belirtilen desen ve işlem kullanıcıların DN'lerini doğru şekilde 
+oluşturmak için yeterli olacaktır.
+
+Bunun yerine, kullanıcıyı bulmak için bir LDAP arama filtresi yapılandırmak isterseniz, aşağıdaki örneği 
+kullanabilirsiniz
+
+```
+@Bean
+AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource) {
+	LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource);
+	factory.setUserSearchFilter("(uid={0})");
+	factory.setUserSearchBase("ou=people");
+	return factory.createAuthenticationManager();
+}
+```
+
+Daha önce gösterilen ContextSource tanımıyla kullanılırsa, bu, filtre olarak (uid={0}) kullanarak ou=people,
+dc=springframework,dc=org DN'si altında bir arama gerçekleştirir. 
+
+Yine, filtre adındaki parametrenin yerine kullanıcı oturum açma adı değiştirilir, böylece kullanıcı adına eşit uid 
+attribute'una sahip bir giriş arar. Bir kullanıcı arama tabanı sağlanmazsa, arama root'dan gerçekleştirilir.
+
+- 2 - Using Password Authentication
+
+Parola karşılaştırması, kullanıcı tarafından sağlanan parolanın repository'de saklanan parola ile karşılaştırılması 
+işlemidir.
+
+kullanıcının parolasını doğrulamak için iki farklı yöntem bulunmaktadır
+
+1 - Parola attirubute'unun değerini alarak locally olarak kontrol etme: Bu yöntemde, LDAP sunucusundan kullanıcının 
+parola attirubute'unun değeri alınır ve locally olarak kontrol edilir. Karşılaştırma işlemi locally gerçekleştirildiği 
+için, parola değeri sunucudan alınmaz. Bu yöntem, parolanın doğruluğunu doğrulamak için kullanılabilir.
+
+2 - LDAP "compare" methodu kullanarak parolayı karşılaştırma: Bu yöntemde, sağlanan parola sunucuya gönderilir ve 
+sunucuda karşılaştırma işlemi gerçekleştirilir. Gerçek parola değeri asla alınmaz. Bu yöntemde, sunucuda parolanın 
+doğru bir şekilde rastgele bir salt hashed yapıldığı durumlarda LDAP "compare" methodu gerçekleştirilemez.
+
+```
+@Bean
+AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource) {
+	LdapPasswordComparisonAuthenticationManagerFactory factory = new LdapPasswordComparisonAuthenticationManagerFactory(
+			contextSource, NoOpPasswordEncoder.getInstance());
+	factory.setUserDnPatterns("uid={0},ou=people");
+	return factory.createAuthenticationManager();
+}
+```
+
+Aşağıdaki örnek, bazı özelleştirmelerle birlikte daha gelişmiş bir yapılandırmayı göstermektedir:
+
+```
+@Bean
+AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource) {
+	LdapPasswordComparisonAuthenticationManagerFactory factory = new LdapPasswordComparisonAuthenticationManagerFactory(
+			contextSource, new BCryptPasswordEncoder());
+	factory.setUserDnPatterns("uid={0},ou=people");
+	factory.setPasswordAttribute("pwd");
+	return factory.createAuthenticationManager();
+}
+```
+
+- LdapAuthoritiesPopulator
+
+Spring Security'nin LdapAuthoritiesPopulator'ı, kullanıcı için hangi yetkilerin döndürüldüğünü belirlemek için 
+kullanılır.
+
+```
+@Bean
+LdapAuthoritiesPopulator authorities(BaseLdapPathContextSource contextSource) {
+	String groupSearchBase = "";
+	DefaultLdapAuthoritiesPopulator authorities =
+		new DefaultLdapAuthoritiesPopulator(contextSource, groupSearchBase);
+	authorities.setGroupSearchFilter("member={0}");
+	return authorities;
+}
+
+@Bean
+AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource, LdapAuthoritiesPopulator authorities) {
+	LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource);
+	factory.setUserDnPatterns("uid={0},ou=people");
+	factory.setLdapAuthoritiesPopulator(authorities);
+	return factory.createAuthenticationManager();
+}
+```
+
+- Active Directory
+
+Active Directory, Microsoft'un geliştirdiği bir dizin hizmetidir ve LDAP protokolünü destekler. Ancak, bazı özel 
+yeteneklere ve özelliklere sahip olduğu için, standart LdapAuthenticationProvider'ın tipik kullanım deseniyle tam 
+olarak uyumlu olmayabilir.
+
+Active Directory'nin kendi non-standard (standart dışı) kimlik doğrulama seçenekleri vardır. Bu seçenekler, 
+Active Directory'nin sunduğu özel yeteneklere ve yapılandırmalara dayanır. Bu nedenle, normalde kullanılan standart 
+LdapAuthenticationProvider ile bu özel yetenekleri desteklemek veya kullanmak zor olabilir.
+
+Tipik olarak kimlik doğrulama, bir LDAP ayırt edici adı kullanmak yerine etki alanı kullanıcı adı 
+(kullanıcı@etki alanı biçiminde) kullanılarak gerçekleştirilir. Bunu kolaylaştırmak için Spring Security, tipik bir 
+Active Directory kurulumu için özelleştirilmiş bir kimlik doğrulama sağlayıcısına sahiptir.
+
+ActiveDirectoryLdapAuthenticationProvider'ı yapılandırmak oldukça basittir. Yalnızca etki alanı adını ve sunucunun 
+adresini sağlayan bir LDAP URL'sini sağlamanız gerekir
+
+```
+@Bean
+ActiveDirectoryLdapAuthenticationProvider authenticationProvider() {
+	return new ActiveDirectoryLdapAuthenticationProvider("example.com", "ldap://company.example.com/");
+}
+```
